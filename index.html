@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cole's Uno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#120e26;
+    --ink2:#201a3e;
+    --felt:#241d4a;
+    --cream:#f6f2e7;
+    --muted:#a99fd6;
+    --red:#e4322b;
+    --blue:#2b6ce4;
+    --yellow:#f5b400;
+    --green:#2fa84f;
+    --glow:#ffe14d;
+    --shadow:0 10px 24px rgba(0,0,0,.45);
+    --disp:"Fredoka", ui-rounded, "Segoe UI Rounded", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--disp);
+    color:var(--cream);
+    background:
+      radial-gradient(120% 90% at 50% 0%, #2a2158 0%, var(--ink2) 45%, var(--ink) 100%);
+    min-height:100%;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:14px 14px 30px;min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ===== Top bar ===== */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{
+    font-size:clamp(22px,6vw,34px);font-weight:700;letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--red),var(--yellow) 40%,var(--green) 70%,var(--blue));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 2px 0 rgba(0,0,0,.15);
+  }
+  .brand span{font-size:12px;color:var(--muted);font-weight:500;}
+  .stat{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);}
+  .chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+    padding:6px 10px;border-radius:999px;font-weight:600;color:var(--cream);white-space:nowrap;}
+
+  /* ===== Start screen ===== */
+  .screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;padding:20px 0;}
+  .screen .big{font-size:clamp(34px,10vw,64px);font-weight:700;line-height:1;
+    background:linear-gradient(90deg,var(--red),var(--yellow) 40%,var(--green) 70%,var(--blue));
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .screen p{max-width:520px;color:var(--muted);font-size:15px;line-height:1.5;}
+  .rules{max-width:520px;text-align:left;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px 18px;font-size:14px;line-height:1.6;color:var(--cream);}
+  .rules b{color:var(--glow);}
+  .levels{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+  .level-btn{
+    font-family:var(--disp);font-weight:600;font-size:17px;color:var(--ink);
+    padding:16px 26px;border:none;border-radius:16px;cursor:pointer;min-width:150px;
+    box-shadow:var(--shadow);transition:transform .12s ease, filter .12s ease;
+  }
+  .level-btn small{display:block;font-size:12px;font-weight:500;opacity:.75;margin-top:2px;}
+  .level-btn:hover{transform:translateY(-3px);filter:brightness(1.05);}
+  .level-btn:active{transform:translateY(0);}
+  .lb-rookie{background:linear-gradient(160deg,#7fe0a0,var(--green));}
+  .lb-skilled{background:linear-gradient(160deg,#ffd766,var(--yellow));}
+  .lb-expert{background:linear-gradient(160deg,#ff7a74,var(--red));color:#fff;}
+
+  /* ===== Table ===== */
+  .table{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;}
+  .hidden{display:none !important;}
+
+  .oppo{display:flex;align-items:center;gap:12px;}
+  .oppo .who{font-weight:600;font-size:15px;}
+  .oppo .who small{color:var(--muted);font-weight:500;display:block;font-size:12px;}
+  .fan{display:flex;}
+  .fan .back{width:34px;height:50px;border-radius:7px;margin-left:-16px;
+    background:repeating-linear-gradient(45deg,#3a2f74,#3a2f74 6px,#4a3d90 6px,#4a3d90 12px);
+    border:2px solid rgba(255,255,255,.5);box-shadow:0 3px 8px rgba(0,0,0,.4);}
+  .fan .back:first-child{margin-left:0;}
+
+  .center{display:flex;align-items:center;justify-content:center;gap:26px;padding:8px 0;flex:1;min-height:150px;}
+  .pile{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .pile .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.4px;text-transform:uppercase;}
+
+  .drawpile{cursor:pointer;transition:transform .12s ease;}
+  .drawpile:hover{transform:translateY(-4px);}
+  .drawpile.disabled{opacity:.5;cursor:default;transform:none;}
+  .deckback{width:80px;height:118px;border-radius:12px;position:relative;
+    background:repeating-linear-gradient(45deg,#3a2f74,#3a2f74 8px,#4a3d90 8px,#4a3d90 16px);
+    border:3px solid rgba(255,255,255,.6);box-shadow:var(--shadow);}
+  .deckback::after{content:"?";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:34px;font-weight:700;color:rgba(255,255,255,.85);}
+
+  .colorswatch{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.5);}
+
+  /* ===== Cards ===== */
+  .card{
+    position:relative;width:80px;height:118px;border-radius:12px;
+    border:3px solid #fff;box-shadow:var(--shadow);flex:none;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;user-select:none;
+  }
+  .card .oval{position:absolute;width:96px;height:60px;background:#fff;border-radius:50%;
+    transform:rotate(-45deg);opacity:.95;}
+  .card .big-c{position:relative;font-size:40px;font-weight:700;z-index:2;line-height:1;}
+  .card .corner{position:absolute;font-size:15px;font-weight:700;z-index:2;line-height:1;}
+  .card .corner.tl{top:6px;left:8px;}
+  .card .corner.br{bottom:6px;right:8px;transform:rotate(180deg);}
+  .c-red{background:var(--red);} .c-red .big-c,.c-red .corner{color:var(--red);}
+  .c-blue{background:var(--blue);} .c-blue .big-c,.c-blue .corner{color:var(--blue);}
+  .c-yellow{background:var(--yellow);} .c-yellow .big-c,.c-yellow .corner{color:var(--yellow);}
+  .c-green{background:var(--green);} .c-green .big-c,.c-green .corner{color:var(--green);}
+  .c-red .corner,.c-blue .corner,.c-yellow .corner,.c-green .corner{color:#fff;}
+
+  /* wild-type cards: pinwheel */
+  .c-wild{background:
+    conic-gradient(var(--red) 0 90deg,var(--blue) 90deg 180deg,var(--yellow) 180deg 270deg,var(--green) 270deg 360deg);}
+  .c-wild .oval{background:rgba(20,15,40,.86);}
+  .c-wild .big-c{color:#fff;font-size:22px;text-align:center;}
+  .c-wild .corner{color:#fff;}
+
+  /* trash card: colored with trash glyph */
+  .card.trash .oval{opacity:0;}
+  .card.trash .big-c{font-size:34px;}
+  .card.trash .tlabel{position:absolute;bottom:10px;font-size:11px;font-weight:700;color:#fff;z-index:2;letter-spacing:.5px;}
+
+  /* ===== Hand ===== */
+  .hand-wrap{padding-top:6px;}
+  .hand-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .hand-title .who{font-weight:600;font-size:15px;}
+  .hand{display:flex;flex-wrap:wrap;gap:0;justify-content:center;row-gap:10px;}
+  .hand .card{margin-left:-22px;transition:transform .12s ease, margin .12s ease;cursor:default;}
+  .hand .card:first-child{margin-left:0;}
+  .hand .card.playable{cursor:pointer;}
+  .hand .card.playable:hover{transform:translateY(-14px);}
+  .hand .card.dim{opacity:.42;filter:saturate(.6);}
+  @media(hover:none){ .hand .card{margin-left:-14px;} }
+
+  /* ===== Controls ===== */
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:4px;min-height:52px;}
+  .btn{font-family:var(--disp);font-weight:600;font-size:15px;border:none;border-radius:12px;
+    padding:11px 20px;cursor:pointer;box-shadow:var(--shadow);transition:transform .1s ease,filter .1s ease;}
+  .btn:active{transform:translateY(1px);}
+  .btn-pass{background:rgba(255,255,255,.14);color:var(--cream);border:1px solid rgba(255,255,255,.2);}
+  .btn-restart{background:rgba(255,255,255,.1);color:var(--muted);border:1px solid rgba(255,255,255,.16);font-size:13px;padding:8px 14px;}
+  .btn-uno{background:linear-gradient(160deg,#ffe14d,#f5b400);color:#5a3d00;font-size:20px;font-weight:700;
+    padding:12px 30px;display:none;}
+  .btn-uno.show{display:inline-block;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,225,77,.6);}
+    50%{transform:scale(1.06);box-shadow:0 0 0 14px rgba(255,225,77,0);}}
+
+  .msg{text-align:center;font-size:15px;font-weight:500;color:var(--cream);min-height:22px;padding:4px 0;}
+  .msg .accent{color:var(--glow);font-weight:600;}
+
+  /* ===== Color picker modal ===== */
+  .overlay{position:fixed;inset:0;background:rgba(10,7,22,.78);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:var(--felt);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:26px;text-align:center;max-width:360px;width:100%;box-shadow:var(--shadow);}
+  .modal h2{font-size:22px;margin-bottom:6px;}
+  .modal p{color:var(--muted);font-size:14px;margin-bottom:18px;}
+  .picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .pick{height:64px;border:none;border-radius:14px;cursor:pointer;font-family:var(--disp);
+    font-weight:700;font-size:16px;color:#fff;box-shadow:var(--shadow);transition:transform .1s ease;}
+  .pick:hover{transform:scale(1.04);}
+  .pick.red{background:var(--red);} .pick.blue{background:var(--blue);}
+  .pick.yellow{background:var(--yellow);color:#5a3d00;} .pick.green{background:var(--green);}
+
+  /* ===== End banner ===== */
+  .banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;
+    background:rgba(10,7,22,.8);padding:20px;}
+  .banner .box{background:var(--felt);border-radius:24px;padding:34px;text-align:center;max-width:400px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.14);}
+  .banner .box h2{font-size:34px;margin-bottom:8px;
+    background:linear-gradient(90deg,var(--yellow),var(--green));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .banner .box.lose h2{background:linear-gradient(90deg,var(--red),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .banner .box p{color:var(--muted);margin-bottom:20px;}
+
+  .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:70;
+    background:var(--red);color:#fff;padding:12px 22px;border-radius:14px;font-weight:600;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .25s ease;font-size:15px;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><h1>Cole's Uno</h1><span>his own version</span></div>
+    <div class="stat">
+      <span class="chip" id="deckCount">Deck: 0</span>
+      <span class="chip hidden" id="diffChip">Rookie</span>
+    </div>
+  </div>
+
+  <!-- Start screen -->
+  <div class="screen" id="startScreen">
+    <div class="big">Cole's Uno</div>
+    <p>Cole's own version of Uno. Same rules you know, plus three brand new cards Cole invented. Pick who you are playing against to start.</p>
+    <div class="rules">
+      <b>Wild Draw 5 / 10 / 20:</b> pick a color and the other player draws that many cards. The Draw 20 can end a game on its own.<br><br>
+      <b>Trash card:</b> play it when its color matches the pile, and dump every card of that color from your hand at once. The buried cards do nothing, the trash card is what counts.<br><br>
+      <b>Uno:</b> when you get down to one card, tap the glowing Uno button fast. Forget, and you draw 2.
+    </div>
+    <div class="levels">
+      <button class="level-btn lb-rookie" onclick="startGame('rookie')">Rookie<small>easy going bot</small></button>
+      <button class="level-btn lb-skilled" onclick="startGame('skilled')">Skilled<small>plays smart</small></button>
+      <button class="level-btn lb-expert" onclick="startGame('expert')">Expert<small>plays to win</small></button>
+    </div>
+  </div>
+
+  <!-- Game table -->
+  <div class="table hidden" id="tableView">
+    <div class="oppo">
+      <div class="who">Bot <small id="botCountLabel">0 cards</small></div>
+      <div class="fan" id="botFan"></div>
+    </div>
+
+    <div class="center">
+      <div class="pile">
+        <div class="label">Draw</div>
+        <div class="drawpile" id="drawPile" onclick="humanDraw()"><div class="deckback"></div></div>
+      </div>
+      <div class="pile">
+        <div class="label">Pile</div>
+        <div id="discardSlot"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+          <span style="font-size:12px;color:var(--muted);">Color</span>
+          <span class="colorswatch" id="colorSwatch"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="msg" id="message">Your turn.</div>
+
+    <div class="controls">
+      <button class="btn btn-uno" id="unoBtn" onclick="callUno()">UNO!</button>
+      <button class="btn btn-pass hidden" id="passBtn" onclick="humanPass()">Pass turn</button>
+    </div>
+
+    <div class="hand-wrap">
+      <div class="hand-title"><div class="who">Your hand</div><button class="btn btn-restart" onclick="backToStart()">New game</button></div>
+      <div class="hand" id="humanHand"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"></div>
+<div id="bannerHost"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Cole's Uno
+   Single file, no dependencies. Human vs bot.
+   ============================================================ */
+
+const COLORS = ["red","blue","yellow","green"];
+
+/* ---------- Deck ---------- */
+function buildDeck(){
+  const deck = [];
+  let id = 0;
+  const add = (c) => { c.id = id++; deck.push(c); };
+  for(const color of COLORS){
+    add({type:"num", color, value:0});
+    for(let v=1; v<=9; v++){ add({type:"num",color,value:v}); add({type:"num",color,value:v}); }
+    add({type:"skip",color}); add({type:"skip",color});
+    add({type:"reverse",color}); add({type:"reverse",color});
+    add({type:"draw2",color}); add({type:"draw2",color});
+    add({type:"trash",color}); add({type:"trash",color});
+  }
+  for(let i=0;i<4;i++) add({type:"wild",color:null});
+  for(let i=0;i<4;i++) add({type:"wild4",color:null});
+  for(const n of [5,10,20]){ add({type:"bigdraw",color:null,value:n}); add({type:"bigdraw",color:null,value:n}); }
+  return deck;
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* ---------- Card helpers ---------- */
+const WILD_TYPES = ["wild","wild4","bigdraw"];
+const isWildType = (c) => WILD_TYPES.includes(c.type);
+
+function matchKey(c){
+  switch(c.type){
+    case "num": return "n"+c.value;
+    case "skip": return "skip";
+    case "reverse": return "reverse";
+    case "draw2": return "draw2";
+    case "trash": return "trash";
+    default: return null;
+  }
+}
+
+function isPlayable(card, topColor, topKey){
+  if(isWildType(card)) return true;
+  if(card.type === "trash") return card.color === topColor; // Cole's rule: color must match pile
+  return card.color === topColor || matchKey(card) === topKey;
+}
+
+function cardLabel(c){
+  switch(c.type){
+    case "num": return String(c.value);
+    case "skip": return "\u2298";      // circle with slash
+    case "reverse": return "\u21C4";   // arrows
+    case "draw2": return "+2";
+    case "wild": return "WILD";
+    case "wild4": return "+4";
+    case "bigdraw": return "+"+c.value;
+    case "trash": return "\uD83D\uDDD1"; // trash can
+    default: return "?";
+  }
+}
+function cornerLabel(c){
+  if(c.type==="num") return String(c.value);
+  if(c.type==="draw2") return "+2";
+  if(c.type==="wild4") return "+4";
+  if(c.type==="bigdraw") return "+"+c.value;
+  if(c.type==="wild") return "W";
+  if(c.type==="skip") return "\u2298";
+  if(c.type==="reverse") return "\u21C4";
+  if(c.type==="trash") return "\uD83D\uDDD1";
+  return "";
+}
+
+/* ---------- Render a single card DOM ---------- */
+function cardEl(c){
+  const el = document.createElement("div");
+  el.className = "card";
+  if(isWildType(c)) el.classList.add("c-wild");
+  else el.classList.add("c-"+c.color);
+  if(c.type==="trash") el.classList.add("trash");
+
+  const oval = document.createElement("div"); oval.className="oval"; el.appendChild(oval);
+  const big = document.createElement("div"); big.className="big-c"; big.textContent = cardLabel(c); el.appendChild(big);
+  const tl = document.createElement("div"); tl.className="corner tl"; tl.textContent = cornerLabel(c); el.appendChild(tl);
+  const br = document.createElement("div"); br.className="corner br"; br.textContent = cornerLabel(c); el.appendChild(br);
+  if(c.type==="trash"){ const t=document.createElement("div"); t.className="tlabel"; t.textContent="TRASH"; el.appendChild(t); }
+  return el;
+}
+
+/* ============================================================
+   Game state
+   ============================================================ */
+let G = null;
+
+function newGameState(difficulty){
+  const deck = shuffle(buildDeck());
+  const state = {
+    difficulty,
+    draw: deck,
+    discard: [],
+    human: [],
+    bot: [],
+    topColor: null,
+    topKey: null,
+    turn: "human",
+    hasDrawn: false,      // human drew this turn already
+    humanMustCallUno: false,
+    unoTimer: null,
+    over: false,
+    busy: false,
+    deadPass: 0        // consecutive turns where nobody could play and deck was empty
+  };
+  for(let i=0;i<7;i++){ state.human.push(state.draw.pop()); state.bot.push(state.draw.pop()); }
+  // First pile card: draw until a plain number/colored non-wild to keep the start simple
+  let first;
+  do { first = state.draw.pop(); if(isWildType(first) || first.type==="trash"){ state.draw.unshift(first); first=null; } }
+  while(!first);
+  state.discard.push(first);
+  state.topColor = first.color;
+  state.topKey = matchKey(first);
+  return state;
+}
+
+/* ---------- Draw with reshuffle ---------- */
+function drawCards(state, hand, n){
+  let drawn = 0;
+  for(let i=0;i<n;i++){
+    if(state.draw.length === 0){
+      if(state.discard.length <= 1) break; // nothing to reshuffle
+      const top = state.discard.pop();
+      state.draw = shuffle(state.discard);
+      state.discard = [top];
+    }
+    if(state.draw.length>0){ hand.push(state.draw.pop()); drawn++; }
+  }
+  return drawn;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+function render(){
+  document.getElementById("deckCount").textContent = "Deck: " + G.draw.length;
+  document.getElementById("botCountLabel").textContent = G.bot.length + (G.bot.length===1?" card":" cards");
+
+  // bot fan (capped visual)
+  const fan = document.getElementById("botFan"); fan.innerHTML="";
+  const show = Math.min(G.bot.length, 12);
+  for(let i=0;i<show;i++){ const b=document.createElement("div"); b.className="back"; fan.appendChild(b); }
+
+  // discard top
+  const slot = document.getElementById("discardSlot"); slot.innerHTML="";
+  const top = G.discard[G.discard.length-1];
+  const topEl = cardEl(top);
+  // if top is a wild that set a color, tint the swatch below only (card keeps pinwheel)
+  slot.appendChild(topEl);
+
+  // color swatch
+  const sw = document.getElementById("colorSwatch");
+  sw.style.background = G.topColor ? getColorHex(G.topColor) : "#888";
+
+  // human hand
+  const hand = document.getElementById("humanHand"); hand.innerHTML="";
+  // sort for readability: by color then value
+  const order = {red:0,blue:1,yellow:2,green:3};
+  const sorted = [...G.human].sort((a,b)=>{
+    const ca = a.color? order[a.color]:9, cb=b.color?order[b.color]:9;
+    if(ca!==cb) return ca-cb;
+    return (a.value??50)-(b.value??50);
+  });
+  const myTurn = G.turn==="human" && !G.over && !G.busy;
+  for(const c of sorted){
+    const el = cardEl(c);
+    const canPlay = isPlayable(c, G.topColor, G.topKey);
+    if(myTurn && canPlay){ el.classList.add("playable"); el.onclick = ()=>humanPlay(c.id); }
+    else if(myTurn && !canPlay){ el.classList.add("dim"); }
+    hand.appendChild(el);
+  }
+
+  // draw pile clickable?
+  const dp = document.getElementById("drawPile");
+  if(myTurn && !G.hasDrawn) dp.classList.remove("disabled"); else dp.classList.add("disabled");
+
+  // uno button
+  const unoBtn = document.getElementById("unoBtn");
+  if(G.humanMustCallUno) unoBtn.classList.add("show"); else unoBtn.classList.remove("show");
+}
+
+function getColorHex(c){
+  return ({red:"#e4322b",blue:"#2b6ce4",yellow:"#f5b400",green:"#2fa84f"})[c] || "#888";
+}
+
+function setMessage(html){ document.getElementById("message").innerHTML = html; }
+function showToast(text){
+  const t=document.getElementById("toast"); t.textContent=text; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ============================================================
+   Applying a played card's effect.
+   Returns {extraTurn:bool}
+   ============================================================ */
+function applyEffect(state, card, chosenColor, actor){
+  const opponent = actor==="human" ? state.bot : state.human;
+  let extraTurn = false;
+
+  if(card.type==="num"){
+    state.topColor = card.color; state.topKey = matchKey(card);
+  } else if(card.type==="skip" || card.type==="reverse"){
+    state.topColor = card.color; state.topKey = matchKey(card);
+    extraTurn = true; // 2 players: opponent skipped, actor goes again
+  } else if(card.type==="draw2"){
+    state.topColor = card.color; state.topKey = matchKey(card);
+    drawCards(state, opponent, 2); extraTurn = true;
+  } else if(card.type==="trash"){
+    state.topColor = card.color; state.topKey = "trash";
+    // dump handled by caller (removes all of color); no extra turn
+  } else if(card.type==="wild"){
+    state.topColor = chosenColor; state.topKey = null;
+  } else if(card.type==="wild4"){
+    state.topColor = chosenColor; state.topKey = null;
+    drawCards(state, opponent, 4); extraTurn = true;
+  } else if(card.type==="bigdraw"){
+    state.topColor = chosenColor; state.topKey = null;
+    drawCards(state, opponent, card.value); extraTurn = true;
+  }
+  return {extraTurn};
+}
+
+/* ============================================================
+   HUMAN actions
+   ============================================================ */
+function humanPlay(cardId){
+  if(G.turn!=="human" || G.over || G.busy) return;
+  const idx = G.human.findIndex(c=>c.id===cardId);
+  if(idx<0) return;
+  const card = G.human[idx];
+  if(!isPlayable(card, G.topColor, G.topKey)) return;
+
+  // Wild-type needs a color choice first
+  if(isWildType(card)){
+    openColorPicker(card, (chosen)=> resolveHumanPlay(card, idx, chosen));
+    return;
+  }
+  resolveHumanPlay(card, idx, null);
+}
+
+function resolveHumanPlay(card, idx, chosenColor){
+  G.deadPass = 0;
+  // remove played card
+  G.human.splice(idx,1);
+  G.discard.push(card);
+
+  // trash dump: remove all remaining cards of that color, they go under
+  if(card.type==="trash"){
+    const dumped = G.human.filter(c=>c.color===card.color);
+    G.human = G.human.filter(c=>c.color!==card.color);
+    // buried under the trash card, inert. put them in discard beneath top for count integrity.
+    for(const d of dumped){ G.discard.splice(G.discard.length-1, 0, d); }
+    if(dumped.length>0) showToast("Trashed "+dumped.length+" "+card.color+" card"+(dumped.length>1?"s":"")+"!");
+  }
+
+  clearUnoTimer();
+  const {extraTurn} = applyEffect(G, card, chosenColor, "human");
+  G.hasDrawn = false;
+  hidePass();
+
+  // win?
+  if(G.human.length===0){ render(); endGame(true); return; }
+
+  // Uno check: reached exactly 1 by playing -> must call
+  if(G.human.length===1){
+    G.humanMustCallUno = true;
+    startUnoTimer();
+  }
+
+  render();
+
+  if(extraTurn){
+    setMessage(playedMsg(card,"You") + " Go again.");
+    // stay human
+  } else {
+    setMessage(playedMsg(card,"You"));
+    G.turn = "bot";
+    scheduleBot();
+  }
+}
+
+function playedMsg(card, who){
+  const map = {
+    skip:"a Skip.", reverse:"a Reverse.", draw2:"a Draw 2.", wild:"a Wild.",
+    wild4:"a Wild Draw 4.", trash:"a Trash card.", num:"a "+card.value+"."
+  };
+  let what = map[card.type] || "a card.";
+  if(card.type==="bigdraw") what = "a Wild Draw "+card.value+".";
+  return "<span class='accent'>"+who+"</span> played "+what;
+}
+
+function humanDraw(){
+  if(G.turn!=="human" || G.over || G.busy || G.hasDrawn) return;
+  const got = drawCards(G, G.human, 1);
+  G.hasDrawn = true;
+  render();
+  if(got === 0){
+    // deck fully exhausted, nothing to draw
+    G.deadPass++;
+    if(G.deadPass >= 2){ endStalemate(); return; }
+    setMessage("The draw pile is empty and you cannot play. Turn passes.");
+    setTimeout(()=>{ if(!G.over){ endHumanTurn(); } }, 700);
+    return;
+  }
+  G.deadPass = 0;
+  const drawn = G.human[G.human.length-1];
+  if(isPlayable(drawn, G.topColor, G.topKey)){
+    setMessage("You drew a card you can play. Play it, or pass.");
+    showPass();
+  } else {
+    setMessage("You drew a card. Nothing to play, passing.");
+    setTimeout(()=>{ if(!G.over){ endHumanTurn(); } }, 700);
+  }
+}
+
+function humanPass(){
+  if(G.turn!=="human" || G.over) return;
+  hidePass();
+  endHumanTurn();
+}
+
+function endHumanTurn(){
+  G.hasDrawn=false;
+  hidePass();
+  G.turn="bot";
+  render();
+  scheduleBot();
+}
+
+function showPass(){ document.getElementById("passBtn").classList.remove("hidden"); }
+function hidePass(){ document.getElementById("passBtn").classList.add("hidden"); }
+
+/* ---------- Uno button + penalty ---------- */
+function startUnoTimer(){
+  clearUnoTimer();
+  G.unoTimer = setTimeout(()=>{
+    if(G.humanMustCallUno && G.human.length===1 && !G.over){
+      G.humanMustCallUno=false;
+      drawCards(G, G.human, 2);
+      showToast("You forgot Uno! Draw 2.");
+      setMessage("You forgot to call <span class='accent'>Uno</span>. Draw 2.");
+      render();
+    }
+  }, 4000);
+}
+function clearUnoTimer(){ if(G.unoTimer){ clearTimeout(G.unoTimer); G.unoTimer=null; } }
+function callUno(){
+  if(!G.humanMustCallUno) return;
+  G.humanMustCallUno=false;
+  clearUnoTimer();
+  showToast("Uno!");
+  render();
+}
+
+/* ============================================================
+   BOT
+   ============================================================ */
+function scheduleBot(){
+  G.busy = true;
+  render();
+  setTimeout(botTurn, 850);
+}
+
+function botTurn(){
+  if(G.over) return;
+  const playable = G.bot.filter(c=>isPlayable(c, G.topColor, G.topKey));
+
+  if(playable.length===0){
+    // draw one
+    const got = drawCards(G, G.bot, 1);
+    render();
+    if(got === 0){
+      G.deadPass++;
+      if(G.deadPass >= 2){ endStalemate(); return; }
+      setMessage("Draw pile empty. <span class='accent'>Bot</span> passes.");
+      setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 700);
+      return;
+    }
+    G.deadPass = 0;
+    const drawn = G.bot[G.bot.length-1];
+    if(isPlayable(drawn, G.topColor, G.topKey)){
+      setMessage("<span class='accent'>Bot</span> drew and plays it.");
+      setTimeout(()=>botPlay(drawn), 700);
+      return;
+    } else {
+      setMessage("<span class='accent'>Bot</span> drew a card and passes.");
+      setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 700);
+      return;
+    }
+  }
+
+  const choice = botChoose(playable);
+  botPlay(choice);
+}
+
+function botPlay(card){
+  G.deadPass = 0;
+  const idx = G.bot.findIndex(c=>c.id===card.id);
+  if(idx<0){ G.busy=false; G.turn="human"; render(); return; }
+  G.bot.splice(idx,1);
+  G.discard.push(card);
+
+  let chosenColor = null;
+  if(isWildType(card)) chosenColor = botPickColor();
+
+  if(card.type==="trash"){
+    const dumped = G.bot.filter(c=>c.color===card.color);
+    G.bot = G.bot.filter(c=>c.color!==card.color);
+    for(const d of dumped){ G.discard.splice(G.discard.length-1,0,d); }
+    if(dumped.length>0) showToast("Bot trashed "+dumped.length+" "+card.color+" card"+(dumped.length>1?"s":"")+"!");
+  }
+
+  const {extraTurn} = applyEffect(G, card, chosenColor, "bot");
+
+  if(G.bot.length===0){ render(); endGame(false); return; }
+
+  render();
+
+  if(extraTurn){
+    setMessage(playedMsg(card,"Bot") + " Bot goes again.");
+    setTimeout(botTurn, 850);
+  } else {
+    setMessage(playedMsg(card,"Bot"));
+    setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 650);
+  }
+}
+
+function promptHuman(){
+  if(G.over) return;
+  const canPlay = G.human.some(c=>isPlayable(c,G.topColor,G.topKey));
+  if(canPlay) setMessage("Your turn. Play a card.");
+  else setMessage("Your turn. Nothing to play, draw a card.");
+}
+
+/* ---------- Bot color choice: most common color in hand ---------- */
+function botPickColor(){
+  const count = {red:0,blue:0,yellow:0,green:0};
+  for(const c of G.bot){ if(c.color) count[c.color]++; }
+  let best="red", bv=-1;
+  for(const col of COLORS){ if(count[col]>bv){ bv=count[col]; best=col; } }
+  if(bv<=0) best = COLORS[Math.floor(Math.random()*4)];
+  return best;
+}
+
+/* ---------- Bot card choice by difficulty ---------- */
+function botChoose(playable){
+  const diff = G.difficulty;
+  if(diff==="rookie"){
+    return playable[Math.floor(Math.random()*playable.length)];
+  }
+  const humanCount = G.human.length;
+  const expert = diff==="expert";
+  const colorCounts = {red:0,blue:0,yellow:0,green:0};
+  for(const c of G.bot){ if(c.color) colorCounts[c.color]++; }
+
+  let best=null, bestScore=-1e9;
+  for(const c of playable){
+    let s = 0;
+    if(c.type==="trash"){
+      const dumpN = G.bot.filter(x=>x.color===c.color).length; // includes trash removed? trash already counted? c is in bot still
+      s += 6 + dumpN*3;                 // dumping many is great
+    } else if(c.type==="draw2"){
+      s += 5 + (humanCount<=3 ? (expert?7:4) : 0);
+    } else if(c.type==="skip" || c.type==="reverse"){
+      s += 4 + (humanCount<=2 ? (expert?4:2) : 0);
+    } else if(c.type==="wild4"){
+      s += (humanCount<=2 ? (expert?13:9) : -3);   // save it unless human is low
+    } else if(c.type==="bigdraw"){
+      const power = c.value/5;                       // 1,2,4
+      s += (humanCount<=2 ? (expert?8+power*3:6+power*2) : -2 - power); // unload when human low, else hold
+    } else if(c.type==="wild"){
+      s += 0;                                         // keep flexible, low priority
+    } else if(c.type==="num"){
+      s += 1;
+      if(c.color && colorCounts[c.color] >= 3) s += 1; // shed from big color piles
+    }
+    // expert: nudge toward playing colored matches over wilds to preserve wilds
+    if(expert && !isWildType(c)) s += 0.5;
+    s += Math.random()*0.4; // tie break
+    if(s>bestScore){ bestScore=s; best=c; }
+  }
+  return best || playable[0];
+}
+
+/* ============================================================
+   Color picker modal (human wilds)
+   ============================================================ */
+function openColorPicker(card, cb){
+  const host = document.getElementById("modalHost");
+  const label = card.type==="wild" ? "Wild" : (card.type==="wild4" ? "Wild Draw 4" : "Wild Draw "+card.value);
+  host.innerHTML = `
+    <div class="overlay">
+      <div class="modal">
+        <h2>Pick a color</h2>
+        <p>You played a ${label}. Choose the next color.</p>
+        <div class="picker">
+          <button class="pick red" data-c="red">Red</button>
+          <button class="pick blue" data-c="blue">Blue</button>
+          <button class="pick yellow" data-c="yellow">Yellow</button>
+          <button class="pick green" data-c="green">Green</button>
+        </div>
+      </div>
+    </div>`;
+  host.querySelectorAll(".pick").forEach(b=>{
+    b.onclick = ()=>{ host.innerHTML=""; cb(b.getAttribute("data-c")); };
+  });
+}
+
+/* ============================================================
+   End game
+   ============================================================ */
+function endStalemate(){
+  // Deck ran out and neither player can move. Fewest cards wins.
+  const humanWon = G.human.length <= G.bot.length;
+  G.over = true;
+  clearUnoTimer();
+  render();
+  const host = document.getElementById("bannerHost");
+  host.innerHTML = `
+    <div class="banner">
+      <div class="box ${humanWon?'':'lose'}">
+        <h2>${humanWon?'You win!':'Bot wins'}</h2>
+        <p>The deck ran out with no plays left. Fewest cards wins: you had ${G.human.length}, the bot had ${G.bot.length}.</p>
+        <button class="btn lb-skilled level-btn" style="min-width:0" onclick="playAgain()">Play again</button>
+        <button class="btn btn-restart" style="margin-left:8px" onclick="backToStart()">Change bot</button>
+      </div>
+    </div>`;
+}
+
+function endGame(humanWon){
+  G.over = true;
+  clearUnoTimer();
+  render();
+  const host = document.getElementById("bannerHost");
+  host.innerHTML = `
+    <div class="banner">
+      <div class="box ${humanWon?'':'lose'}">
+        <h2>${humanWon?'You win!':'Bot wins'}</h2>
+        <p>${humanWon?'Your hand is empty. Nice.':'The bot emptied its hand first. Rematch?'}</p>
+        <button class="btn lb-skilled level-btn" style="min-width:0" onclick="playAgain()">Play again</button>
+        <button class="btn btn-restart" style="margin-left:8px" onclick="backToStart()">Change bot</button>
+      </div>
+    </div>`;
+}
+function playAgain(){
+  document.getElementById("bannerHost").innerHTML="";
+  startGame(G.difficulty);
+}
+
+/* ============================================================
+   Start / reset
+   ============================================================ */
+function startGame(difficulty){
+  document.getElementById("bannerHost").innerHTML="";
+  document.getElementById("modalHost").innerHTML="";
+  G = newGameState(difficulty);
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("tableView").classList.remove("hidden");
+  const chip = document.getElementById("diffChip");
+  chip.classList.remove("hidden");
+  chip.textContent = difficulty.charAt(0).toUpperCase()+difficulty.slice(1);
+  render();
+  promptHuman();
+}
+function backToStart(){
+  if(G) G.over=true;
+  clearUnoTimer();
+  document.getElementById("bannerHost").innerHTML="";
+  document.getElementById("modalHost").innerHTML="";
+  document.getElementById("tableView").classList.add("hidden");
+  document.getElementById("startScreen").classList.remove("hidden");
+  document.getElementById("diffChip").classList.add("hidden");
+  document.getElementById("deckCount").textContent="Deck: 0";
+}
+
+/* ============================================================
+   Headless test hooks (used by smoke tests, harmless in browser)
+   ============================================================ */
+window.__test = {
+  buildDeck, isPlayable, matchKey, shuffle,
+  simulate(difficulty){
+    // Real AI vs real AI (uses the shipped botChoose/botPickColor), to verify
+    // games terminate, card counts never drift, and the stalemate rule engages.
+    const savedG = G;
+    const st = newGameState(difficulty);
+    const totalStart = st.draw.length + st.human.length + st.bot.length + st.discard.length;
+    let actor = "human", guard = 0, deadPass = 0;
+    const flip = () => (actor = actor==="human" ? "bot" : "human");
+    const drawSim = (state,h,n) => {
+      let got=0;
+      for(let i=0;i<n;i++){
+        if(state.draw.length===0){ if(state.discard.length<=1) break;
+          const t=state.discard.pop(); state.draw=shuffle(state.discard); state.discard=[t]; }
+        if(state.draw.length>0){ h.push(state.draw.pop()); got++; }
+      }
+      return got;
+    };
+    while(guard++ < 20000){
+      const actorHand = actor==="human" ? st.human : st.bot;
+      const oppHand   = actor==="human" ? st.bot   : st.human;
+      const playable = actorHand.filter(c=>isPlayable(c, st.topColor, st.topKey));
+      let card=null;
+      if(playable.length===0){
+        const got = drawSim(st, actorHand, 1);
+        if(got===0){
+          deadPass++;
+          if(deadPass>=2){ G=savedG; return {ok:true, stalemate:true, guard, deckSize:totalStart}; }
+          flip(); continue;
+        }
+        deadPass=0;
+        const d = actorHand[actorHand.length-1];
+        if(isPlayable(d, st.topColor, st.topKey)) card=d; else { flip(); continue; }
+      } else {
+        deadPass=0;
+        G = { bot:actorHand, human:oppHand, difficulty };
+        card = botChoose(playable);
+      }
+      const idx = actorHand.findIndex(c=>c.id===card.id);
+      actorHand.splice(idx,1); st.discard.push(card);
+      let chosen=null;
+      if(WILD_TYPES.includes(card.type)){ G={bot:actorHand,human:oppHand,difficulty}; chosen=botPickColor(); }
+      if(card.type==="trash"){
+        for(let k=actorHand.length-1;k>=0;k--){
+          if(actorHand[k].color===card.color){ st.discard.splice(st.discard.length-1,0,actorHand[k]); actorHand.splice(k,1); }
+        }
+      }
+      const eff = applyEffect(st, card, chosen, actor);
+      const total = st.draw.length + st.human.length + st.bot.length + st.discard.length;
+      if(total !== totalStart){ G=savedG; return {ok:false, reason:"card count drift "+total+"/"+totalStart, guard}; }
+      if(actorHand.length===0){ G=savedG; return {ok:true, winner:actor, guard, deckSize:totalStart}; }
+      if(!eff.extraTurn) flip();
+    }
+    G=savedG;
+    return {ok:false, reason:"no termination", guard};
+  }
+};
+
+/* boot */
+window.addEventListener("DOMContentLoaded", ()=>{
+  document.getElementById("deckCount").textContent = "Deck: 0";
+});
+</script>
+</body>
+</html>
