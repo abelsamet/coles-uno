@@ -157,6 +157,23 @@
   .msg{text-align:center;font-size:15px;font-weight:500;color:var(--cream);min-height:22px;padding:4px 0;}
   .msg .accent{color:var(--glow);font-weight:600;}
 
+  /* ===== Inline color picker (sits above the hand, keeps hand visible) ===== */
+  .pickerbar{display:none;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:16px;
+    padding:12px 16px;margin:2px auto 0;max-width:540px;box-shadow:var(--shadow);}
+  .pickerbar.show{display:flex;}
+  .pickerbar .plabel{font-weight:600;font-size:15px;color:var(--cream);}
+  .pickerbar .pchips{display:flex;gap:10px;}
+  .pchip{width:48px;height:48px;border:2px solid rgba(255,255,255,.65);border-radius:12px;cursor:pointer;
+    box-shadow:var(--shadow);transition:transform .1s ease;}
+  .pchip:hover{transform:scale(1.09);}
+  .pchip.red{background:var(--red);} .pchip.blue{background:var(--blue);}
+  .pchip.yellow{background:var(--yellow);} .pchip.green{background:var(--green);}
+  .pcancel{font-family:var(--disp);font-weight:600;font-size:14px;color:var(--cream);
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:10px;
+    padding:0 16px;height:44px;cursor:pointer;}
+  .pcancel:hover{background:rgba(255,255,255,.2);}
+
   /* ===== Color picker modal ===== */
   .overlay{position:fixed;inset:0;background:rgba(10,7,22,.78);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
   .modal{background:var(--felt);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:26px;text-align:center;max-width:360px;width:100%;box-shadow:var(--shadow);}
@@ -201,7 +218,7 @@
     <div class="rules">
       <b>Wild Draw 5 / 10 / 20:</b> pick a color and the other player draws that many cards. The Draw 20 can end a game on its own.<br><br>
       <b>Trash card:</b> play it when its color matches the pile, and dump every card of that color from your hand at once. The buried cards do nothing, the trash card is what counts.<br><br>
-      <b>Uno:</b> when you get down to one card, tap the glowing Uno button fast. Forget, and you draw 2.
+      <b>Uno:</b> when you get down to one card, tap the glowing Uno button in time. Forget, and you draw 2.
     </div>
     <div class="levels">
       <button class="level-btn lb-rookie" onclick="startGame('rookie')">Rookie<small>easy going bot</small></button>
@@ -236,8 +253,9 @@
 
     <div class="controls">
       <button class="btn btn-uno" id="unoBtn" onclick="callUno()">UNO!</button>
-      <button class="btn btn-pass hidden" id="passBtn" onclick="humanPass()">Pass turn</button>
     </div>
+
+    <div class="pickerbar" id="pickerBar"></div>
 
     <div class="hand-wrap">
       <div class="hand-title"><div class="who">Your hand</div><button class="btn btn-restart" onclick="backToStart()">New game</button></div>
@@ -368,6 +386,7 @@ function newGameState(difficulty){
     unoTimer: null,
     over: false,
     busy: false,
+    picking: false,    // human is choosing a color for a wild
     deadPass: 0        // consecutive turns where nobody could play and deck was empty
   };
   for(let i=0;i<7;i++){ state.human.push(state.draw.pop()); state.bot.push(state.draw.pop()); }
@@ -429,17 +448,21 @@ function render(){
     return (a.value??50)-(b.value??50);
   });
   const myTurn = G.turn==="human" && !G.over && !G.busy;
+  const picking = G.picking;
   for(const c of sorted){
     const el = cardEl(c);
     const canPlay = isPlayable(c, G.topColor, G.topKey);
-    if(myTurn && canPlay){ el.classList.add("playable"); el.onclick = ()=>humanPlay(c.id); }
-    else if(myTurn && !canPlay){ el.classList.add("dim"); }
+    if(myTurn && !picking && canPlay){ el.classList.add("playable"); el.onclick = ()=>humanPlay(c.id); }
+    else if(myTurn && !picking && !canPlay){ el.classList.add("dim"); }
+    // while picking: cards render at full brightness but are not clickable
     hand.appendChild(el);
   }
 
-  // draw pile clickable?
+  // draw pile clickable? Only when it is your turn and you have NOTHING playable.
+  // Once you hold a playable card you must play it (house rule: draw until you can play).
+  const canPlayAny = G.human.some(c=>isPlayable(c, G.topColor, G.topKey));
   const dp = document.getElementById("drawPile");
-  if(myTurn && !G.hasDrawn) dp.classList.remove("disabled"); else dp.classList.add("disabled");
+  if(myTurn && !picking && !canPlayAny) dp.classList.remove("disabled"); else dp.classList.add("disabled");
 
   // uno button
   const unoBtn = document.getElementById("unoBtn");
@@ -522,8 +545,6 @@ function resolveHumanPlay(card, idx, chosenColor){
 
   clearUnoTimer();
   const {extraTurn} = applyEffect(G, card, chosenColor, "human");
-  G.hasDrawn = false;
-  hidePass();
 
   // win?
   if(G.human.length===0){ render(); endGame(true); return; }
@@ -557,45 +578,35 @@ function playedMsg(card, who){
 }
 
 function humanDraw(){
-  if(G.turn!=="human" || G.over || G.busy || G.hasDrawn) return;
+  if(G.turn!=="human" || G.over || G.busy || G.picking) return;
+  // If you already hold a playable card, you must play it (no more drawing).
+  if(G.human.some(c=>isPlayable(c, G.topColor, G.topKey))) return;
+
   const got = drawCards(G, G.human, 1);
-  G.hasDrawn = true;
-  render();
   if(got === 0){
-    // deck fully exhausted, nothing to draw
+    // Deck fully exhausted and reshuffle not possible: forced pass / stalemate.
+    render();
     G.deadPass++;
     if(G.deadPass >= 2){ endStalemate(); return; }
     setMessage("The draw pile is empty and you cannot play. Turn passes.");
-    setTimeout(()=>{ if(!G.over){ endHumanTurn(); } }, 700);
+    setTimeout(()=>{ if(!G.over){ endHumanTurn(); } }, 800);
     return;
   }
   G.deadPass = 0;
   const drawn = G.human[G.human.length-1];
   if(isPlayable(drawn, G.topColor, G.topKey)){
-    setMessage("You drew a card you can play. Play it, or pass.");
-    showPass();
+    setMessage("You drew a card you can <span class='accent'>play</span>. Play it!");
   } else {
-    setMessage("You drew a card. Nothing to play, passing.");
-    setTimeout(()=>{ if(!G.over){ endHumanTurn(); } }, 700);
+    setMessage("Nothing to play yet. Draw again.");
   }
-}
-
-function humanPass(){
-  if(G.turn!=="human" || G.over) return;
-  hidePass();
-  endHumanTurn();
+  render();
 }
 
 function endHumanTurn(){
-  G.hasDrawn=false;
-  hidePass();
   G.turn="bot";
   render();
   scheduleBot();
 }
-
-function showPass(){ document.getElementById("passBtn").classList.remove("hidden"); }
-function hidePass(){ document.getElementById("passBtn").classList.add("hidden"); }
 
 /* ---------- Uno button + penalty ---------- */
 function startUnoTimer(){
@@ -608,7 +619,7 @@ function startUnoTimer(){
       setMessage("You forgot to call <span class='accent'>Uno</span>. Draw 2.");
       render();
     }
-  }, 4000);
+  }, 8000);
 }
 function clearUnoTimer(){ if(G.unoTimer){ clearTimeout(G.unoTimer); G.unoTimer=null; } }
 function callUno(){
@@ -633,25 +644,27 @@ function botTurn(){
   const playable = G.bot.filter(c=>isPlayable(c, G.topColor, G.topKey));
 
   if(playable.length===0){
-    // draw one
-    const got = drawCards(G, G.bot, 1);
+    // draw until the bot has a playable card (or the deck runs out)
+    let drewCount = 0, gotPlayable = false;
+    while(true){
+      const got = drawCards(G, G.bot, 1);
+      if(got === 0) break;
+      drewCount++;
+      if(isPlayable(G.bot[G.bot.length-1], G.topColor, G.topKey)){ gotPlayable = true; break; }
+    }
     render();
-    if(got === 0){
+    if(gotPlayable){
+      G.deadPass = 0;
+      const drawn = G.bot[G.bot.length-1];
+      setMessage("<span class='accent'>Bot</span> drew "+drewCount+" card"+(drewCount>1?"s":"")+", then plays.");
+      setTimeout(()=>botPlay(drawn), 750);
+      return;
+    } else {
+      // deck exhausted with no play
       G.deadPass++;
       if(G.deadPass >= 2){ endStalemate(); return; }
       setMessage("Draw pile empty. <span class='accent'>Bot</span> passes.");
-      setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 700);
-      return;
-    }
-    G.deadPass = 0;
-    const drawn = G.bot[G.bot.length-1];
-    if(isPlayable(drawn, G.topColor, G.topKey)){
-      setMessage("<span class='accent'>Bot</span> drew and plays it.");
-      setTimeout(()=>botPlay(drawn), 700);
-      return;
-    } else {
-      setMessage("<span class='accent'>Bot</span> drew a card and passes.");
-      setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 700);
+      setTimeout(()=>{ G.busy=false; G.turn="human"; render(); promptHuman(); }, 750);
       return;
     }
   }
@@ -696,7 +709,7 @@ function promptHuman(){
   if(G.over) return;
   const canPlay = G.human.some(c=>isPlayable(c,G.topColor,G.topKey));
   if(canPlay) setMessage("Your turn. Play a card.");
-  else setMessage("Your turn. Nothing to play, draw a card.");
+  else setMessage("Your turn. Nothing to play, so draw until you can.");
 }
 
 /* ---------- Bot color choice: most common color in hand ---------- */
@@ -750,27 +763,35 @@ function botChoose(playable){
 }
 
 /* ============================================================
-   Color picker modal (human wilds)
+   Color picker (inline bar above the hand, with a Back button)
    ============================================================ */
 function openColorPicker(card, cb){
-  const host = document.getElementById("modalHost");
+  G.picking = true;
+  render();
   const label = card.type==="wild" ? "Wild" : (card.type==="wild4" ? "Wild Draw 4" : "Wild Draw "+card.value);
-  host.innerHTML = `
-    <div class="overlay">
-      <div class="modal">
-        <h2>Pick a color</h2>
-        <p>You played a ${label}. Choose the next color.</p>
-        <div class="picker">
-          <button class="pick red" data-c="red">Red</button>
-          <button class="pick blue" data-c="blue">Blue</button>
-          <button class="pick yellow" data-c="yellow">Yellow</button>
-          <button class="pick green" data-c="green">Green</button>
-        </div>
-      </div>
-    </div>`;
-  host.querySelectorAll(".pick").forEach(b=>{
-    b.onclick = ()=>{ host.innerHTML=""; cb(b.getAttribute("data-c")); };
+  setMessage("Pick a color for your <span class='accent'>"+label+"</span>, or go back to play a different card.");
+  const bar = document.getElementById("pickerBar");
+  bar.innerHTML = `
+    <span class="plabel">Pick a color</span>
+    <span class="pchips">
+      <button class="pchip red" data-c="red" aria-label="Red"></button>
+      <button class="pchip blue" data-c="blue" aria-label="Blue"></button>
+      <button class="pchip yellow" data-c="yellow" aria-label="Yellow"></button>
+      <button class="pchip green" data-c="green" aria-label="Green"></button>
+    </span>
+    <button class="pcancel" id="pickCancel">\u2715 Back</button>`;
+  bar.classList.add("show");
+  bar.querySelectorAll(".pchip").forEach(b=>{
+    b.onclick = ()=>{ closeColorPicker(); cb(b.getAttribute("data-c")); };
   });
+  document.getElementById("pickCancel").onclick = ()=>{ closeColorPicker(); promptHuman(); };
+}
+function closeColorPicker(){
+  G.picking = false;
+  const bar = document.getElementById("pickerBar");
+  bar.classList.remove("show");
+  bar.innerHTML = "";
+  render();
 }
 
 /* ============================================================
@@ -821,6 +842,8 @@ function startGame(difficulty){
   document.getElementById("bannerHost").innerHTML="";
   document.getElementById("modalHost").innerHTML="";
   G = newGameState(difficulty);
+  const pb = document.getElementById("pickerBar");
+  if(pb){ pb.classList.remove("show"); pb.innerHTML=""; }
   document.getElementById("startScreen").classList.add("hidden");
   document.getElementById("tableView").classList.remove("hidden");
   const chip = document.getElementById("diffChip");
@@ -868,15 +891,19 @@ window.__test = {
       const playable = actorHand.filter(c=>isPlayable(c, st.topColor, st.topKey));
       let card=null;
       if(playable.length===0){
-        const got = drawSim(st, actorHand, 1);
-        if(got===0){
+        let gotPlayable=false;
+        while(true){
+          const got = drawSim(st, actorHand, 1);
+          if(got===0) break;
+          if(isPlayable(actorHand[actorHand.length-1], st.topColor, st.topKey)){ gotPlayable=true; break; }
+        }
+        if(!gotPlayable){
           deadPass++;
           if(deadPass>=2){ G=savedG; return {ok:true, stalemate:true, guard, deckSize:totalStart}; }
           flip(); continue;
         }
         deadPass=0;
-        const d = actorHand[actorHand.length-1];
-        if(isPlayable(d, st.topColor, st.topKey)) card=d; else { flip(); continue; }
+        card = actorHand[actorHand.length-1];
       } else {
         deadPass=0;
         G = { bot:actorHand, human:oppHand, difficulty };
