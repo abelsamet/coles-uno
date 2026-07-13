@@ -194,6 +194,8 @@
     background:linear-gradient(90deg,var(--yellow),var(--green));-webkit-background-clip:text;background-clip:text;color:transparent;}
   .banner .box.lose h2{background:linear-gradient(90deg,var(--red),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent;}
   .banner .box p{color:var(--muted);margin-bottom:20px;}
+  .banner .box .scoreline{color:var(--cream);font-size:15px;margin-top:-6px;margin-bottom:20px;}
+  .banner .box .scoreline b{color:var(--glow);}
 
   .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:70;
     background:var(--red);color:#fff;padding:12px 22px;border-radius:14px;font-weight:600;
@@ -207,6 +209,7 @@
     <div class="brand"><h1>Cole's Uno</h1><span>his own version</span></div>
     <div class="stat">
       <span class="chip" id="deckCount">Deck: 0</span>
+      <span class="chip hidden" id="scoreChip">You 0 &middot; Bot 0</span>
       <span class="chip hidden" id="diffChip">Rookie</span>
     </div>
   </div>
@@ -218,7 +221,8 @@
     <div class="rules">
       <b>Wild Draw 5 / 10 / 20:</b> pick a color and the other player draws that many cards. The Draw 20 can end a game on its own.<br><br>
       <b>Trash card:</b> play it when its color matches the pile, and dump every card of that color from your hand at once. The buried cards do nothing, the trash card is what counts.<br><br>
-      <b>Uno:</b> when you get down to one card, tap the glowing Uno button in time. Forget, and you draw 2.
+      <b>Uno:</b> when you get down to one card, tap the glowing Uno button in time. Forget, and you draw 2.<br><br>
+      <b>Scoring:</b> go out first to win the round. Whoever is still holding cards takes penalty points for them (a number card is its face value, action cards 20, wilds 50 and up). Lowest score wins, so empty your hand fast.
     </div>
     <div class="levels">
       <button class="level-btn lb-rookie" onclick="startGame('rookie')">Rookie<small>easy going bot</small></button>
@@ -370,6 +374,34 @@ function cardEl(c){
    ============================================================ */
 let G = null;
 
+/* ---------- Scoring ----------
+   The player left holding cards at the end takes penalty points equal to the
+   total value of those cards. Lower is better. Totals persist across rounds
+   ("Play again") and reset when the bot is changed. */
+let SCORES = { human:0, bot:0 };
+
+function cardPoints(c){
+  switch(c.type){
+    case "num": return c.value;                 // face value, 0 to 9
+    case "skip": case "reverse": case "draw2": case "trash": return 20;
+    case "wild": case "wild4": return 50;
+    case "bigdraw": return c.value===5 ? 100 : (c.value===10 ? 150 : 200);
+    default: return 0;
+  }
+}
+function handPoints(hand){ return hand.reduce((s,c)=>s+cardPoints(c), 0); }
+
+// Award the round: loser is whoever did not go out. Returns round detail.
+function scoreRound(humanWon){
+  const loserHand = humanWon ? G.bot : G.human;
+  const pts = handPoints(loserHand);
+  if(humanWon) SCORES.bot += pts; else SCORES.human += pts;
+  return { pts, loserCount: loserHand.length, humanWon };
+}
+function scoreLine(){
+  return `Score so far (lower is better): <b>You ${SCORES.human}</b>, <b>Bot ${SCORES.bot}</b>.`;
+}
+
 function newGameState(difficulty){
   const deck = shuffle(buildDeck());
   const state = {
@@ -420,6 +452,7 @@ function drawCards(state, hand, n){
    ============================================================ */
 function render(){
   document.getElementById("deckCount").textContent = "Deck: " + G.draw.length;
+  document.getElementById("scoreChip").innerHTML = "You " + SCORES.human + " \u00B7 Bot " + SCORES.bot;
   document.getElementById("botCountLabel").textContent = G.bot.length + (G.bot.length===1?" card":" cards");
 
   // bot fan (capped visual)
@@ -802,13 +835,15 @@ function endStalemate(){
   const humanWon = G.human.length <= G.bot.length;
   G.over = true;
   clearUnoTimer();
+  const r = scoreRound(humanWon);
   render();
   const host = document.getElementById("bannerHost");
   host.innerHTML = `
     <div class="banner">
       <div class="box ${humanWon?'':'lose'}">
         <h2>${humanWon?'You win!':'Bot wins'}</h2>
-        <p>The deck ran out with no plays left. Fewest cards wins: you had ${G.human.length}, the bot had ${G.bot.length}.</p>
+        <p>The deck ran out with no plays left. Fewest cards wins: you had ${G.human.length}, the bot had ${G.bot.length}. The player left behind takes <b>${r.pts}</b> point${r.pts===1?'':'s'}.</p>
+        <p class="scoreline">${scoreLine()}</p>
         <button class="btn lb-skilled level-btn" style="min-width:0" onclick="playAgain()">Play again</button>
         <button class="btn btn-restart" style="margin-left:8px" onclick="backToStart()">Change bot</button>
       </div>
@@ -818,13 +853,18 @@ function endStalemate(){
 function endGame(humanWon){
   G.over = true;
   clearUnoTimer();
+  const r = scoreRound(humanWon);
   render();
+  const detail = humanWon
+    ? `You went out. The bot was left holding ${r.loserCount} card${r.loserCount===1?'':'s'} worth <b>${r.pts}</b> point${r.pts===1?'':'s'}.`
+    : `The bot went out. You were left holding ${r.loserCount} card${r.loserCount===1?'':'s'} worth <b>${r.pts}</b> point${r.pts===1?'':'s'}.`;
   const host = document.getElementById("bannerHost");
   host.innerHTML = `
     <div class="banner">
       <div class="box ${humanWon?'':'lose'}">
         <h2>${humanWon?'You win!':'Bot wins'}</h2>
-        <p>${humanWon?'Your hand is empty. Nice.':'The bot emptied its hand first. Rematch?'}</p>
+        <p>${detail}</p>
+        <p class="scoreline">${scoreLine()}</p>
         <button class="btn lb-skilled level-btn" style="min-width:0" onclick="playAgain()">Play again</button>
         <button class="btn btn-restart" style="margin-left:8px" onclick="backToStart()">Change bot</button>
       </div>
@@ -849,17 +889,20 @@ function startGame(difficulty){
   const chip = document.getElementById("diffChip");
   chip.classList.remove("hidden");
   chip.textContent = difficulty.charAt(0).toUpperCase()+difficulty.slice(1);
+  document.getElementById("scoreChip").classList.remove("hidden");
   render();
   promptHuman();
 }
 function backToStart(){
   if(G) G.over=true;
   clearUnoTimer();
+  SCORES = { human:0, bot:0 };   // new bot means a fresh series
   document.getElementById("bannerHost").innerHTML="";
   document.getElementById("modalHost").innerHTML="";
   document.getElementById("tableView").classList.add("hidden");
   document.getElementById("startScreen").classList.remove("hidden");
   document.getElementById("diffChip").classList.add("hidden");
+  document.getElementById("scoreChip").classList.add("hidden");
   document.getElementById("deckCount").textContent="Deck: 0";
 }
 
@@ -867,7 +910,7 @@ function backToStart(){
    Headless test hooks (used by smoke tests, harmless in browser)
    ============================================================ */
 window.__test = {
-  buildDeck, isPlayable, matchKey, shuffle,
+  buildDeck, isPlayable, matchKey, shuffle, cardPoints, handPoints,
   simulate(difficulty){
     // Real AI vs real AI (uses the shipped botChoose/botPickColor), to verify
     // games terminate, card counts never drift, and the stalemate rule engages.
